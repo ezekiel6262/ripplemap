@@ -27,6 +27,10 @@ const schema = {
   required: ["summary", "transmissionPaths", "contradictions", "watchConditions", "caveats"]
 };
 
+function decodeXml(value = "") {
+  return value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+}
+
 export default async function handler(req, res) {
   const telemetry = prepare(req, res, "/api/analyze");
   const reply = (status, body, extra) => { telemetry.done(status, extra); return res.status(status).json(body); };
@@ -55,6 +59,22 @@ export default async function handler(req, res) {
     }
   } catch (error) {
     console.warn(JSON.stringify({ level: "warn", msg: "source_fetch_failed", route: "/api/analyze", requestId: telemetry.requestId, error: error instanceof Error ? error.message : String(error) }));
+  }
+  if (!newsSources.length) {
+    try {
+      const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(event.slice(0, 240))}&hl=en-US&gl=US&ceid=US:en`;
+      const rssResponse = await fetchWithTimeout(rssUrl, { headers: { "user-agent": "RippleMap/1.0 research app" } }, 8_000);
+      const xml = await rssResponse.text();
+      const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, 8);
+      newsSources = items.map((match, index) => {
+        const item = match[1];
+        const field = name => decodeXml(item.match(new RegExp(`<${name}>([\\s\\S]*?)<\\/${name}>`))?.[1] || "");
+        const sourceMatch = item.match(/<source[^>]*>([\s\S]*?)<\/source>/);
+        return { index: index + 1, title: field("title").slice(0, 300), url: field("link").slice(0, 1000), domain: decodeXml(sourceMatch?.[1] || "Google News").slice(0, 120), seenDate: field("pubDate").slice(0, 60), language: "English", indexer: "Google News RSS" };
+      }).filter(source => source.title && /^https?:\/\//.test(source.url));
+    } catch (error) {
+      console.warn(JSON.stringify({ level: "warn", msg: "source_fallback_failed", route: "/api/analyze", requestId: telemetry.requestId, error: error instanceof Error ? error.message : String(error) }));
+    }
   }
   const prompt = `You are RippleMap, an evidence-disciplined cross-asset research assistant. Analyze a user-supplied event against a live Bitget market snapshot and recent GDELT-indexed reporting. Separate observations from inference. Never invent news, prices, correlations, historical analogues, or certainty. The event is unverified user context. Article titles are leads, not verified ground truth; attribute them by source index when relevant. Use only supplied market fields as factual market evidence. A 24h move does not prove causality. Produce research conditions, not personalized financial advice. If the news list is empty or weakly related, say so explicitly.\n\nUSER EVENT:\n${event}\n\nLIVE BITGET SNAPSHOT:\n${JSON.stringify(safeMarket)}\n\nRECENT SOURCE LEADS:\n${JSON.stringify(newsSources)}`;
   try {
