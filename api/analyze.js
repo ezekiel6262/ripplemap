@@ -1,3 +1,5 @@
+import { allowRequest, bodyTooLarge, fetchWithTimeout, prepare } from "./_lib/security.js";
+
 const schema = {
   type: "object",
   properties: {
@@ -26,14 +28,37 @@ const schema = {
 };
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "POST required" });
-  if (!process.env.GEMINI_API_KEY) return res.status(503).json({ error: "Gemini is not configured" });
+  const telemetry = prepare(req, res, "/api/analyze");
+  const reply = (status, body, extra) => { telemetry.done(status, extra); return res.status(status).json(body); };
+  if (req.method !== "POST") return reply(405, { error: "POST required" });
+  if (!allowRequest(req)) return reply(429, { error: "Too many analysis requests. Try again in a minute." });
+  if (bodyTooLarge(req)) return reply(413, { error: "Request is too large" });
+  if (!process.env.GEMINI_API_KEY) return reply(503, { error: "Gemini is not configured" });
   const event = String(req.body?.event || "").trim().slice(0, 4000);
   const marketData = Array.isArray(req.body?.marketData) ? req.body.marketData.slice(0, 12) : [];
-  if (!event || !marketData.length) return res.status(400).json({ error: "Event and live market data are required" });
-  const prompt = `You are RippleMap, an evidence-disciplined cross-asset research assistant. Analyze a user-supplied event against a live Bitget market snapshot. Separate observations from inference. Never invent news, prices, correlations, historical analogues, or certainty. The event is unverified user context. Use only supplied market fields as factual evidence. A 24h move does not prove causality. Produce research conditions, not personalized financial advice.\n\nUSER EVENT:\n${event}\n\nLIVE BITGET SNAPSHOT:\n${JSON.stringify(marketData)}`;
+  if (!event || !marketData.length) return reply(400, { error: "Event and live market data are required" });
+  const safeMarket = marketData.map(row => ({
+    symbol: String(row.symbol || "").slice(0, 30), lastPrice: Number(row.lastPrice), price24hPcnt: Number(row.price24hPcnt),
+    bid1Price: Number(row.bid1Price), ask1Price: Number(row.ask1Price), turnover24h: Number(row.turnover24h),
+    sourceTimestamp: String(row.sourceTimestamp || "").slice(0, 80)
+  })).filter(row => row.symbol && [row.lastPrice, row.price24hPcnt, row.bid1Price, row.ask1Price, row.turnover24h].every(Number.isFinite));
+  if (!safeMarket.length) return reply(400, { error: "No valid market rows were supplied" });
+  let newsSources = [];
   try {
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent", {
+    const query = event.replace(/[^a-zA-Z0-9\s-]/g, " ").split(/\s+/).filter(word => word.length > 2).slice(0, 10).join(" ");
+    if (query) {
+      const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=artlist&format=json&maxrecords=8&timespan=3days&sort=hybridrel`;
+      const sourceResponse = await fetchWithTimeout(url, { headers: { "user-agent": "RippleMap/1.0 research app" } }, 8_000);
+      const raw = await sourceResponse.text();
+      const parsed = JSON.parse(raw);
+      newsSources = (parsed.articles || []).slice(0, 8).map((article, index) => ({ index: index + 1, title: String(article.title || "").slice(0, 300), url: String(article.url || "").slice(0, 1000), domain: String(article.domain || "").slice(0, 120), seenDate: String(article.seendate || "").slice(0, 40), language: String(article.language || "").slice(0, 40) })).filter(source => source.title && /^https?:\/\//.test(source.url));
+    }
+  } catch (error) {
+    console.warn(JSON.stringify({ level: "warn", msg: "source_fetch_failed", route: "/api/analyze", requestId: telemetry.requestId, error: error instanceof Error ? error.message : String(error) }));
+  }
+  const prompt = `You are RippleMap, an evidence-disciplined cross-asset research assistant. Analyze a user-supplied event against a live Bitget market snapshot and recent GDELT-indexed reporting. Separate observations from inference. Never invent news, prices, correlations, historical analogues, or certainty. The event is unverified user context. Article titles are leads, not verified ground truth; attribute them by source index when relevant. Use only supplied market fields as factual market evidence. A 24h move does not prove causality. Produce research conditions, not personalized financial advice. If the news list is empty or weakly related, say so explicitly.\n\nUSER EVENT:\n${event}\n\nLIVE BITGET SNAPSHOT:\n${JSON.stringify(safeMarket)}\n\nRECENT SOURCE LEADS:\n${JSON.stringify(newsSources)}`;
+  try {
+    const response = await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent", {
       method: "POST",
       headers: { "content-type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY },
       body: JSON.stringify({
@@ -42,11 +67,11 @@ export default async function handler(req, res) {
       })
     });
     const payload = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: payload?.error?.message || "Gemini request failed" });
+    if (!response.ok) return reply(response.status, { error: payload?.error?.message || "Gemini request failed" }, { provider: "gemini" });
     const text = payload?.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("");
-    if (!text) return res.status(502).json({ error: "Gemini returned no analysis" });
-    return res.status(200).json({ analysis: JSON.parse(text), model: "gemini-3.6-flash", generatedAt: new Date().toISOString() });
+    if (!text) return reply(502, { error: "Gemini returned no analysis" });
+    return reply(200, { analysis: JSON.parse(text), sources: newsSources, marketSource: "Bitget API v3", model: "gemini-3.6-flash", generatedAt: new Date().toISOString() }, { sources: newsSources.length, rows: safeMarket.length });
   } catch (error) {
-    return res.status(500).json({ error: error instanceof Error ? error.message : "Analysis failed" });
+    return reply(error?.name === "AbortError" ? 504 : 500, { error: error?.name === "AbortError" ? "Analysis timed out. Please retry." : error instanceof Error ? error.message : "Analysis failed" });
   }
 }
