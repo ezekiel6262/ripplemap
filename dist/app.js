@@ -12,6 +12,7 @@ let currentRecord=null;
 let records=loadLocal();
 let cloud=null;
 let user=null;
+let symbolSuggestionIndex=-1;
 
 function loadLocal(){try{return JSON.parse(localStorage.getItem(STORE_KEY)||'[]')}catch{return[]}}
 function persistLocal(){localStorage.setItem(STORE_KEY,JSON.stringify(records));updateSavedCount()}
@@ -84,6 +85,22 @@ function renderAssetResults(query){
   const term=query.trim().toUpperCase();let rows=instruments;
   if(term)rows=rows.filter(item=>`${item.symbol} ${item.baseCoin}`.toUpperCase().includes(term));else rows=rows.filter(item=>item.isReality==='yes');
   $('#assetResults').innerHTML=rows.slice(0,12).map(item=>`<button class="asset-tag" data-symbol="${esc(item.symbol)}">${esc(item.baseCoin)} <small>${item.isReality==='yes'?'rToken':esc(item.quoteCoin||'')}</small></button>`).join('')||'<span class="micro">No matching Bitget instrument.</span>';
+}
+
+function currentSymbolTerm(){return $('#symbols').value.split(',').pop().trim().toUpperCase()}
+function renderSymbolSuggestions(){
+  const term=currentSymbolTerm();const panel=$('#symbolSuggestions');
+  if(!term||!instruments.length){panel.classList.remove('open');$('#symbols').setAttribute('aria-expanded','false');return}
+  const rank=item=>item.symbol.toUpperCase().startsWith(term)?0:String(item.baseCoin||'').toUpperCase().startsWith(term)?1:2;
+  const matches=instruments.filter(item=>`${item.symbol} ${item.baseCoin}`.toUpperCase().includes(term)).sort((a,b)=>rank(a)-rank(b)||a.symbol.localeCompare(b.symbol)).slice(0,8);
+  symbolSuggestionIndex=-1;panel.innerHTML=matches.map(item=>`<button type="button" class="symbol-option" role="option" data-symbol="${esc(item.symbol)}"><span>${esc(item.symbol)}</span><small>${esc(item.baseCoin)} / ${esc(item.quoteCoin||'')}</small></button>`).join('');
+  panel.classList.toggle('open',matches.length>0);$('#symbols').setAttribute('aria-expanded',String(matches.length>0));
+}
+function chooseSymbolSuggestion(symbol){
+  const parts=$('#symbols').value.split(',');parts[parts.length-1]=symbol;$('#symbols').value=parts.map(item=>item.trim()).filter(Boolean).join(', ');$('#symbolSuggestions').classList.remove('open');$('#symbols').setAttribute('aria-expanded','false');$('#symbols').focus();
+}
+function moveSymbolSuggestion(direction){
+  const options=[...document.querySelectorAll('.symbol-option')];if(!options.length)return;symbolSuggestionIndex=(symbolSuggestionIndex+direction+options.length)%options.length;options.forEach((option,index)=>option.classList.toggle('active',index===symbolSuggestionIndex));options[symbolSuggestionIndex].scrollIntoView({block:'nearest'});
 }
 
 function addSymbol(symbol){const values=$('#symbols').value.split(',').map(item=>item.trim().toUpperCase()).filter(Boolean);if(!values.includes(symbol))values.push(symbol);$('#symbols').value=values.join(', ');toast(`${symbol} added`)}
@@ -161,6 +178,11 @@ async function loadShared(){
 document.querySelectorAll('.nav-item').forEach(button=>button.addEventListener('click',()=>switchView(button.dataset.view)));
 $('#assetSearch').addEventListener('input',event=>renderAssetResults(event.target.value));
 $('#assetResults').addEventListener('click',event=>{const symbol=event.target.closest('[data-symbol]')?.dataset.symbol;if(symbol)addSymbol(symbol)});
+$('#symbols').addEventListener('input',renderSymbolSuggestions);
+$('#symbols').addEventListener('focus',renderSymbolSuggestions);
+$('#symbols').addEventListener('keydown',event=>{if(event.key==='ArrowDown'){event.preventDefault();moveSymbolSuggestion(1)}else if(event.key==='ArrowUp'){event.preventDefault();moveSymbolSuggestion(-1)}else if(event.key==='Enter'&&symbolSuggestionIndex>=0){event.preventDefault();const option=document.querySelectorAll('.symbol-option')[symbolSuggestionIndex];if(option)chooseSymbolSuggestion(option.dataset.symbol)}else if(event.key==='Escape'){$('#symbolSuggestions').classList.remove('open');$('#symbols').setAttribute('aria-expanded','false')}});
+$('#symbolSuggestions').addEventListener('click',event=>{const option=event.target.closest('[data-symbol]');if(option)chooseSymbolSuggestion(option.dataset.symbol)});
+document.addEventListener('click',event=>{if(!event.target.closest('.symbol-picker')){$('#symbolSuggestions').classList.remove('open');$('#symbols').setAttribute('aria-expanded','false')}});
 $('#run').addEventListener('click',runInvestigation);$('#saveInvestigation').addEventListener('click',saveCurrent);$('#shareInvestigation').addEventListener('click',shareCurrent);$('#savedSearch').addEventListener('input',renderSaved);$('#exportAll').addEventListener('click',exportRecords);$('#signIn').addEventListener('click',signIn);$('#signOut').addEventListener('click',()=>cloud?.auth.signOut());
 $('#savedList').addEventListener('click',event=>{const card=event.target.closest('[data-id]');const action=event.target.dataset.action;if(!card||!action)return;const record=records.find(item=>item.id===card.dataset.id);if(action==='open')openRecord(record);if(action==='share'){currentRecord=record;shareCurrent()}if(action==='delete')deleteRecord(record)});
 
