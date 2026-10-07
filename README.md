@@ -12,7 +12,7 @@ Fast-moving headlines invite confident market narratives before the evidence is 
 
 ## What is live
 
-- Bitget API v3 instruments and ticker snapshots—no seeded prices.
+- Bitget API v3 instruments and ticker snapshots, with no seeded prices.
 - Recent reporting discovered through GDELT DOC 2.0, with Google News RSS fallback.
 - Gemini 3.6 Flash structured analysis constrained to supplied evidence.
 - Source links, evidence quality, caveats, and invalidation conditions.
