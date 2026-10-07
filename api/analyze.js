@@ -87,9 +87,9 @@ export default async function handler(req, res) {
       })
     });
     const payload = await response.json();
-    if (!response.ok) return reply(response.status, { error: payload?.error?.message || "Gemini request failed" }, { provider: "gemini" });
+    if (!response.ok) return reply(response.status, { error: "AI synthesis is temporarily unavailable" }, { provider: "gemini", providerError: payload?.error?.message?.slice(0, 300) });
     const text = payload?.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("");
-    if (!text) return reply(502, { error: "Gemini returned no analysis" });
+    if (!text) return reply(502, { error: "AI synthesis returned no analysis" });
     return reply(200, { analysis: JSON.parse(text), sources: newsSources, marketSource: "Bitget API v3", model: "gemini-3.6-flash", generatedAt: new Date().toISOString() }, { sources: newsSources.length, rows: safeMarket.length });
   } catch (error) {
     return reply(error?.name === "AbortError" ? 504 : 500, { error: error?.name === "AbortError" ? "Analysis timed out. Please retry." : error instanceof Error ? error.message : "Analysis failed" });
