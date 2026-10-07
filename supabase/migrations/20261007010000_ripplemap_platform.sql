@@ -34,6 +34,8 @@ create table if not exists public.ripplemap_events (
   created_at timestamptz not null default now()
 );
 
+create index if not exists ripplemap_events_user_id_idx on public.ripplemap_events(user_id) where user_id is not null;
+
 alter table public.ripplemap_events enable row level security;
 create policy "clients create analytics events" on public.ripplemap_events for insert to anon,authenticated with check (user_id is null or (select auth.uid())=user_id);
 grant insert on public.ripplemap_events to anon,authenticated;
