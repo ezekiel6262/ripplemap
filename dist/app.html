@@ -12,7 +12,7 @@
 <body>
   <div class="shell">
     <aside class="sidebar">
-      <a class="brand" href="/" aria-label="RippleMap home"><span>↗</span>RippleMap</a>
+      <a class="brand" href="/" aria-label="RippleMap home"><span></span>RippleMap</a>
       <nav aria-label="Product navigation">
         <button class="nav-item active" data-view="workspace">Live workspace</button>
         <button class="nav-item" data-view="saved">Saved investigations <b id="savedCount">0</b></button>
@@ -27,7 +27,7 @@
         <button class="secondary" id="signOut" hidden>Sign out</button>
         <p id="authMessage" class="micro"></p>
       </div>
-      <div class="source-note">Live market data: <a href="https://www.bitget.com/api-doc" target="_blank" rel="noopener">Bitget API v3</a><br>Research synthesis: Gemini 3.6 Flash<br>Human decision required.</div>
+      <div class="source-note">Live market data: <a href="https://www.bitget.com/api-doc" target="_blank" rel="noopener">Bitget API v3</a><br>Research synthesis: Gemini 3.6 Flash<br>Human decision required.<div class="legal-links"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div>
     </aside>
 
     <main>
@@ -50,7 +50,7 @@
             <label for="assetSearch">Find a Bitget instrument</label>
             <input id="assetSearch" type="search" placeholder="Search BTC, NVDA, rToken…" autocomplete="off">
             <div class="asset-results" id="assetResults"></div>
-            <button id="run" class="primary">Fetch evidence and analyze</button>
+            <button id="run" class="primary">Fetch evidence and analyze →</button>
             <div id="error" class="error" role="alert"></div>
           </section>
 
@@ -58,7 +58,7 @@
 
           <section class="panel audit" id="audit" hidden>
             <div class="panel-heading"><h2>Evidence audit</h2><div class="record-actions"><button class="secondary compact" id="saveInvestigation">Save investigation</button><button class="secondary compact" id="shareInvestigation">Create share link</button></div></div>
-            <div class="audit-grid"><div class="evidence"><h3>What the data supports</h3><ul id="supported"></ul></div><div class="analysis" id="aiPanel"></div></div>
+            <div class="audit-grid"><div class="evidence"><span class="evidence-label">OBSERVED</span><h3>What the data supports</h3><ul id="supported"></ul></div><div class="analysis" id="aiPanel"></div></div>
             <div class="timestamp" id="timestamp"></div>
           </section>
         </div>

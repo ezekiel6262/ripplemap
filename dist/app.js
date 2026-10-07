@@ -28,6 +28,9 @@ function track(name,properties={}){
   if(cloud)cloud.from('ripplemap_events').insert({...event,user_id:user?.id||null}).then(()=>{});
 }
 
+window.addEventListener('error',event=>track('client_error',{message:String(event.message||'Unknown client error').slice(0,300)}));
+window.addEventListener('unhandledrejection',event=>track('client_error',{message:String(event.reason?.message||event.reason||'Unhandled rejection').slice(0,300)}));
+
 async function initCloud(){
   try{
     const response=await fetch('/api/config');
@@ -116,9 +119,9 @@ async function runInvestigation(){
     const symbols=await selectedSymbols();if(!symbols.length)throw new Error('Add at least one Bitget symbol.');
     const {rows,invalid}=await fetchTickers(symbols);if(!rows.length)throw new Error('No valid Bitget ticker data returned.');renderMarket(rows,invalid);$('#audit').hidden=false;$('#aiPanel').innerHTML='<b>Gemini is tracing causal paths…</b><p>Prices, recent reporting, and inference are being kept separate.</p>';button.textContent='Gemini is analyzing…';
     const marketData=rows.map(row=>({symbol:row.symbol,lastPrice:Number(row.lastPrice),price24hPcnt:Number(row.price24hPcnt),bid1Price:Number(row.bid1Price),ask1Price:Number(row.ask1Price),turnover24h:Number(row.turnover24h),sourceTimestamp:row.ts}));
-    const response=await fetch('/api/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({event,marketData})});const payload=await response.json();if(!response.ok)throw new Error(payload.error||'Analysis failed');renderAnalysis(payload.analysis,payload.sources||[]);
+    const response=await fetch('/api/analyze',{method:'POST',headers:{'content-type':'application/json','x-ripplemap-session':sessionId()},body:JSON.stringify({event,marketData})});const payload=await response.json();if(!response.ok)throw new Error(payload.error||'Analysis failed');renderAnalysis(payload.analysis,payload.sources||[]);
     currentRecord={id:uuid(),event,symbols:rows.map(row=>row.symbol),marketData,analysis:payload.analysis,sources:payload.sources||[],is_public:false,created_at:new Date().toISOString()};$('#timestamp').textContent=`Fetched ${new Date().toLocaleString()} · Bitget source timestamps preserved.`;$('#feed').textContent=`Live · ${new Date().toLocaleTimeString()}`;track('investigation_completed',{symbols:rows.length,sources:(payload.sources||[]).length});
-  }catch(error){showError(error.message||'Live investigation failed.');if(!$('#audit').hidden)$('#aiPanel').innerHTML=`<b>Analysis unavailable</b><p>${esc(error.message)}</p>`}finally{button.disabled=false;button.textContent='Refresh evidence and analysis'}
+  }catch(error){track('investigation_failed',{message:String(error.message||'Unknown failure').slice(0,200)});showError(error.message||'Live investigation failed.');if(!$('#audit').hidden)$('#aiPanel').innerHTML=`<b>Analysis unavailable</b><p>${esc(error.message)}</p>`}finally{button.disabled=false;button.textContent='Refresh evidence and analysis →'}
 }
 
 async function saveCurrent(){

@@ -35,7 +35,7 @@ export default async function handler(req, res) {
   const telemetry = prepare(req, res, "/api/analyze");
   const reply = (status, body, extra) => { telemetry.done(status, extra); return res.status(status).json(body); };
   if (req.method !== "POST") return reply(405, { error: "POST required" });
-  if (!allowRequest(req)) return reply(429, { error: "Too many analysis requests. Try again in a minute." });
+  if (!allowRequest(req, 6, 60_000)) return reply(429, { error: "Analysis limit reached. Try again in a minute." });
   if (bodyTooLarge(req)) return reply(413, { error: "Request is too large" });
   if (!process.env.GEMINI_API_KEY) return reply(503, { error: "Gemini is not configured" });
   const event = String(req.body?.event || "").trim().slice(0, 4000);
@@ -83,7 +83,7 @@ export default async function handler(req, res) {
       headers: { "content-type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseJsonSchema: schema }
+        generationConfig: { temperature: 0.2, maxOutputTokens: 2200, responseMimeType: "application/json", responseJsonSchema: schema }
       })
     });
     const payload = await response.json();
