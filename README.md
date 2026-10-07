@@ -17,6 +17,8 @@ Fast-moving headlines invite confident market narratives before the evidence is 
 - Gemini 3.6 Flash structured analysis constrained to supplied evidence.
 - Source links, evidence quality, caveats, and invalidation conditions.
 - A public health endpoint that reveals readiness without exposing secrets.
+- Local-first saved investigations, JSON export, passwordless accounts, cloud synchronization, and public read-only research links.
+- Privacy-safe product events for activation and workflow measurement.
 
 ## Architecture
 
@@ -44,7 +46,7 @@ cp .env.example .env.local
 vercel dev
 ```
 
-Set `GEMINI_API_KEY` in `.env.local`. The Bitget, GDELT, and Google News endpoints used here do not require credentials.
+Set `GEMINI_API_KEY` in `.env.local`. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to enable accounts, cloud synchronization, sharing, and product events. The Bitget, GDELT, and Google News endpoints used here do not require credentials.
 
 ## Repository map
 
@@ -54,6 +56,10 @@ api/health.js        deployment readiness endpoint
 api/_lib/security.js validation, throttling, timeouts, response helpers
 dist/index.html      public product homepage
 dist/app.html        live research workspace
+dist/app.js          research, persistence, auth, sync, sharing and analytics
+dist/app.css         responsive control-room interface
+api/config.js        safe public cloud configuration
+supabase/migrations  versioned schema and row-level security policies
 vercel.json          function limits and security headers
 ```
 
