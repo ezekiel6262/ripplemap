@@ -1,0 +1,13 @@
+This presentation uses an AI-generated voice.
+
+When a major event hits, market evidence, recent reporting, and AI opinions usually live in separate places. RippleMap brings those layers together in one auditable research workspace. It helps a researcher see what moved, inspect the available evidence, and challenge every inference.
+
+This workspace is connected to Bitget's live market directory. The symbol picker searches real supported instruments as I type. For this investigation, I am comparing Bitcoin, Ether, and Solana against a reported interest-rate surprise.
+
+RippleMap first collects the current market observations. These prices, bid and ask quotes, 24-hour movements, turnover values, and timestamps come directly from Bitget. The product keeps this observed layer separate from interpretation. A price move can coincide with an event without proving that the event caused it.
+
+The synthesis does not simply predict a direction. It proposes a conditional transmission path, labels its confidence, identifies the evidence being used, and provides an invalidation test. It also exposes contradictions, watch conditions, and caveats. In this run, no matching news leads were available, so RippleMap explicitly lowers confidence instead of inventing confirmation.
+
+Signed-in researchers can save an investigation to their private cloud library and reopen it from another device. They can also create a public, read-only link for a teammate, client, or decision-maker. The underlying research remains attributable to its live evidence snapshot.
+
+RippleMap makes the role of every layer clear: live Bitget market data, attributed reporting leads, and server-side research synthesis. It turns an event into a research map that can be inspected, challenged, saved, and shared. RippleMap is live today.
